@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TLLa — Trình Phiên Dịch Rút Gọn</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Be+Vietnam+Pro:wght@300;400;600;700&display=swap');
+
+        :root {
+            --bg: #0e0f11;
+            --surface: #16181c;
+            --surface2: #1e2128;
+            --border: #2a2d35;
+            --accent: #4ade80;
+            --accent2: #facc15;
+            --accent3: #f87171;
+            --text: #e8eaf0;
+            --text-dim: #6b7280;
+            --text-mid: #9ca3af;
+            --mono: 'IBM Plex Mono', monospace;
+            --sans: 'Be Vietnam Pro', sans-serif;
+            --radius: 10px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+
+        header {
+            max-width: 1100px;
+            margin: 0 auto 2.5rem;
+            display: flex;
+            align-items: baseline;
+            gap: 1rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1.25rem;
+            flex-wrap: wrap;
+        }
+        header h1 {
+            font-family: var(--mono);
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: var(--accent);
+        }
+        header span {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+        }
+
+        /* Direction Switcher */
+        .direction-switch {
+            margin-left: auto;
+            display: flex;
+            gap: 0.5rem;
+            background: var(--surface2);
+            padding: 0.25rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .dir-btn {
+            background: none;
+            border: none;
+            padding: 0.4rem 1rem;
+            border-radius: 6px;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            cursor: pointer;
+            color: var(--text-dim);
+            transition: all 0.15s;
+        }
+        .dir-btn.active {
+            background: var(--accent);
+            color: #0a1a10;
+            font-weight: 600;
+        }
+        .dir-btn:hover:not(.active) {
+            background: var(--border);
+            color: var(--text);
+        }
+
+        .main {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+
+        @media (max-width: 720px) {
+            .main { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            padding: 0.75rem 1rem;
+            background: var(--surface2);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--text-mid);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            flex-wrap: wrap;
+        }
+
+        .dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--accent);
+            display: inline-block;
+        }
+        .dot.yellow { background: var(--accent2); }
+        .dot.red    { background: var(--accent3); }
+
+        textarea {
+            width: 100%;
+            min-height: 200px;
+            background: transparent;
+            border: none;
+            outline: none;
+            resize: vertical;
+            padding: 1rem;
+            font-family: var(--mono);
+            font-size: 0.95rem;
+            color: var(--text);
+            line-height: 1.7;
+        }
+        textarea::placeholder { color: var(--text-dim); }
+        textarea:read-only { opacity: 0.8; }
+
+        .panel-footer {
+            padding: 0.6rem 1rem;
+            border-top: 1px solid var(--border);
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            min-height: 32px;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+
+        .status-ok   { color: var(--accent); }
+        .status-err  { color: var(--accent3); }
+        .status-busy { color: var(--accent2); }
+
+        .arrow-row {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            padding: 0.5rem 0;
+            grid-column: 1 / -1;
+        }
+
+        .pipeline {
+            grid-column: 1 / -1;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .pipeline-header {
+            padding: 0.75rem 1.25rem;
+            background: var(--surface2);
+            border-bottom: 1px solid var(--border);
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            color: var(--text-mid);
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        .pipeline-header:hover { background: #22252d; }
+        .toggle-icon { margin-left: auto; transition: transform 0.2s; }
+        .pipeline-header.open .toggle-icon { transform: rotate(180deg); }
+
+        .pipeline-body {
+            padding: 1.25rem;
+            display: none;
+            gap: 1rem;
+            flex-direction: column;
+        }
+        .pipeline-body.visible { display: flex; }
+
+        .step-group {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .step-label {
+            padding: 0.55rem 0.9rem;
+            background: var(--surface2);
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            color: var(--text-dim);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .step-content {
+            padding: 0.75rem 0.9rem;
+            font-family: var(--mono);
+            font-size: 0.85rem;
+            line-height: 1.8;
+        }
+
+        .word-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.3rem;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 0.1rem 0.5rem;
+            margin: 0.15rem;
+            font-size: 0.82rem;
+        }
+        .word-chip.ok   { border-color: #1a4a2a; background: #0d2218; color: var(--accent); }
+        .word-chip.fail { border-color: #4a1a1a; background: #2a0d0d; color: var(--accent3); }
+        .word-chip .arrow { color: var(--text-dim); font-size: 0.7rem; }
+
+        .min-step {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.3rem 0;
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            border-bottom: 1px solid #1a1d22;
+            flex-wrap: wrap;
+        }
+        .min-step:last-child { border-bottom: none; }
+        .min-step .tag {
+            font-size: 0.68rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 3px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+        .tag-try    { background: #1e3050; color: #60a5fa; }
+        .tag-ok     { background: #0d2218; color: var(--accent); }
+        .tag-fail   { background: #2a0d0d; color: var(--accent3); }
+        .tag-limit  { background: #2a2218; color: var(--accent2); }
+        .tag-start  { background: #1e1a30; color: #a78bfa; }
+
+        .tlla-hi { color: var(--accent2); }
+        .vi-hi  { color: var(--accent); }
+
+        .result-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-family: var(--mono);
+            font-size: 1.05rem;
+            color: var(--accent2);
+            letter-spacing: 0.02em;
+            word-break: break-all;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spinner {
+            width: 12px; height: 12px;
+            border: 2px solid var(--border);
+            border-top-color: var(--accent2);
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+            flex-shrink: 0;
+        }
+
+        .copy-btn {
+            margin-left: auto;
+            background: none;
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text-dim);
+            font-size: 0.72rem;
+            padding: 0.2rem 0.55rem;
+            cursor: pointer;
+            font-family: var(--mono);
+            transition: all 0.15s;
+        }
+        .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+        .tabs {
+            max-width: 1100px;
+            margin: 0 auto 1.25rem;
+            display: flex;
+            gap: 0.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text-dim);
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: -1px;
+            transition: all 0.15s;
+        }
+        .tab-btn:hover { color: var(--text-mid); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .tab-panel { display: none; }
+        .tab-panel.active { display: block; }
+
+        .tlc-grid {
+            max-width: 1100px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.25rem;
+        }
+        @media (max-width: 720px) { .tlc-grid { grid-template-columns: 1fr; } }
+        
+        .tlc-full { grid-column: 1 / -1; }
+
+        .stats-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+        }
+        .stat-chip {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.35rem 0.75rem;
+            font-family: var(--mono);
+            font-size: 0.78rem;
+        }
+        .stat-chip .val { color: var(--accent2); font-weight: 600; }
+        .stat-chip .lbl { color: var(--text-dim); }
+        .stat-chip.good .val { color: var(--accent); }
+        .stat-chip.bad  .val { color: var(--accent3); }
+
+        .compact-box {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-family: var(--mono);
+            font-size: 0.88rem;
+            color: #60a5fa;
+            word-break: break-all;
+            line-height: 1.6;
+            min-height: 60px;
+        }
+
+        .decomp-result {
+            background: #0d2218;
+            border: 1px solid #1a4a2a;
+            border-radius: 8px;
+            padding: 1rem 1.25rem;
+            font-family: var(--sans);
+            font-size: 1rem;
+            color: var(--accent);
+            line-height: 1.7;
+            min-height: 60px;
+        }
+
+        .action-btn {
+            background: var(--accent);
+            color: #0a1a10;
+            border: none;
+            border-radius: 6px;
+            padding: 0.5rem 1.25rem;
+            font-family: var(--mono);
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            letter-spacing: 0.03em;
+            transition: opacity 0.15s;
+        }
+        .action-btn:hover { opacity: 0.85; }
+        .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+        .action-btn.blue {
+            background: #3b82f6;
+            color: #fff;
+        }
+
+        .file-btn {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            cursor: pointer;
+            color: var(--text-mid);
+        }
+        .file-btn:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .flow-arrow {
+            text-align: center;
+            color: var(--text-dim);
+            font-size: 1.2rem;
+            padding: 0.25rem 0;
+            font-family: var(--mono);
+        }
+    </style>
+</head>
+<body>
+
+
+
+<!-- Tabs -->
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('tlla')">Dịch TLLa</button>
+    <button class="tab-btn" onclick="switchTab('compress')">Nén TLC</button>
+    <button class="tab-btn" onclick="switchTab('decompress')">Giải nén TLC</button>
+</div>
+
+<!-- Tab: TLLa Translator -->
+<div class="tab-panel active" id="tab-tlla">
+<div class="main">
+
+    <div class="panel">
+        <div class="panel-header">
+            <span class="dot yellow" id="inputDot"></span>
+            <span id="inputLabel">TLLa (cần dịch sang tiếng Việt)</span>
+        </div>
+        <textarea id="inputText" placeholder="Nhập văn bản...&#10;Ví dụ: x0ch2b5m2l2 Tuấn"></textarea>
+        <div class="panel-footer">
+            <span id="inputStatus">Nhập văn bản để dịch.</span>
+            <button class="copy-btn" id="swapBtn" style="margin-left:auto; background:var(--accent2); color:#0a1a10;" title="Hoán đổi">⇄</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <span class="dot" id="outputDot"></span>
+            <span id="outputLabel">Tiếng Việt (kết quả)</span>
+            <button class="copy-btn" id="copyBtn" title="Copy kết quả">copy</button>
+        </div>
+        <textarea id="outputText" placeholder="Kết quả dịch sẽ hiển thị ở đây..." readonly></textarea>
+        <div class="panel-footer">
+            <span id="outputStatus">Chờ nhập liệu...</span>
+        </div>
+    </div>
+
+    <div class="pipeline" id="pipeline" style="display:none;">
+        <div class="pipeline-header" id="pipelineToggle">
+            <span class="dot red"></span>
+            Chi tiết pipeline rút gọn
+            <span class="toggle-icon">▾</span>
+        </div>
+        <div class="pipeline-body" id="pipelineBody"></div>
+    </div>
+
+</div>
+</div>
+
+<!-- Tab: TLC Compress -->
+<div class="tab-panel" id="tab-compress">
+<div class="tlc-grid">
+
+    <div class="panel tlc-full">
+        <div class="panel-header">
+            <span class="dot yellow"></span>
+            Tiếng Việt → TLLa → TLC Compact
+            <button class="action-btn" id="compressBtn" onclick="runCompress()" style="margin-left:auto">▶ Nén</button>
+            <button class="file-btn" id="exportThualuuBtn" onclick="exportThualuu()" style="margin-left:0.5rem">💾 Tải .thualuu</button>
+        </div>
+        <textarea id="tlcInput" placeholder="Nhập tiếng Việt cần nén… hệ thống TLLa-hóa rồi nén xuống compact string ASCII." style="min-height:140px"></textarea>
+        <div class="panel-footer"><span id="tlcInputStatus">Nhập văn bản và nhấn Nén.</span></div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header"><span class="dot"></span>TLLa rút gọn (trung gian)</div>
+        <div id="tlcTLLaOut" class="compact-box" style="color:var(--accent2);margin:0.75rem;min-height:80px"></div>
+        <div class="panel-footer" id="tlcTLLaStat">—</div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <span class="dot red"></span>TLC Compact (Base85 · ASCII)
+            <button class="copy-btn" id="copyCompactBtn" onclick="copyCompact()" style="margin-left:auto">copy</button>
+        </div>
+        <div id="tlcCompactOut" class="compact-box" style="margin:0.75rem;min-height:80px"></div>
+        <div class="panel-footer" id="tlcCompactStat">—</div>
+    </div>
+
+    <div class="panel tlc-full" id="tlcStatsPanel" style="display:none">
+        <div class="panel-header"><span class="dot yellow"></span>Thống kê nén</div>
+        <div class="stats-row" id="tlcStatsRow"></div>
+    </div>
+
+</div>
+</div>
+
+<!-- Tab: TLC Decompress -->
+<div class="tab-panel" id="tab-decompress">
+<div class="tlc-grid">
+
+    <div class="panel tlc-full">
+        <div class="panel-header">
+            <span class="dot red"></span>TLC Compact → TLLa → Tiếng Việt
+            <button class="action-btn blue" onclick="runDecompress()" style="margin-left:auto">▶ Giải nén</button>
+            <button class="file-btn" id="importThualuuBtn" onclick="document.getElementById('thualuuFile').click()" style="margin-left:0.5rem">📂 Mở .thualuu</button>
+            <input type="file" id="thualuuFile" accept=".thualuu" style="display:none" onchange="importThualuu(this)">
+        </div>
+        <textarea id="tlcDecompInput" placeholder="Dán TLC compact string vào đây (Base85)… hoặc mở file .thualuu" style="min-height:100px;font-family:var(--mono);font-size:0.85rem"></textarea>
+        <div class="panel-footer"><span id="tlcDecompStatus">Dán compact string và nhấn Giải nén.</span></div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header"><span class="dot"></span>TLLa (khôi phục)</div>
+        <div id="tlcDecompTLLa" class="compact-box" style="color:var(--accent2);margin:0.75rem;min-height:80px"></div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header"><span class="dot yellow"></span>Tiếng Việt (kết quả)</div>
+        <div id="tlcDecompVI" style="background:#0d2218;border:1px solid #1a4a2a;border-radius:8px;padding:1rem 1.25rem;font-family:var(--sans);font-size:1rem;color:var(--accent);line-height:1.7;min-height:60px;margin:0.75rem"></div>
+    </div>
+
+</div>
+</div>
+
+<script>
+// DOM elements
+const inputText = document.getElementById('inputText');
+const outputText = document.getElementById('outputText');
+const inputStatus = document.getElementById('inputStatus');
+const outputStatus = document.getElementById('outputStatus');
+const inputLabel = document.getElementById('inputLabel');
+const outputLabel = document.getElementById('outputLabel');
+const inputDot = document.getElementById('inputDot');
+const outputDot = document.getElementById('outputDot');
+const pipeline = document.getElementById('pipeline');
+const pipelineBody = document.getElementById('pipelineBody');
+const pipelineToggle = document.getElementById('pipelineToggle');
+const copyBtn = document.getElementById('copyBtn');
+const swapBtn = document.getElementById('swapBtn');
+
+let currentDirection = 'tlla->vi'; // 'tlla->vi' or 'vi->tlla'
+let debTimer = null;
+
+// ── Direction switch ─────────────────────────────────────────────
+function setDirection(dir) {
+    currentDirection = dir;
+    document.querySelectorAll('.dir-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.dir === dir);
+    });
+    
+    if (dir === 'tlla->vi') {
+        inputLabel.textContent = 'TLLa (cần dịch sang tiếng Việt)';
+        outputLabel.textContent = 'Tiếng Việt (kết quả)';
+        inputDot.className = 'dot yellow';
+        outputDot.className = 'dot';
+        inputText.placeholder = 'Nhập TLLa...\nVí dụ: x0ch2b5m2l2 Tuấn';
+    } else {
+        inputLabel.textContent = 'Tiếng Việt (cần dịch sang TLLa)';
+        outputLabel.textContent = 'TLLa (kết quả rút gọn)';
+        inputDot.className = 'dot';
+        outputDot.className = 'dot yellow';
+        inputText.placeholder = 'Nhập tiếng Việt có dấu...\nVí dụ: xin chào bạn mình là Tuấn';
+    }
+    
+    // Clear và chạy lại nếu có text
+    if (inputText.value.trim()) {
+        runTranslation();
+    }
+}
+
+// ── Swap direction ───────────────────────────────────────────────
+function swapDirection() {
+    const newDir = currentDirection === 'tlla->vi' ? 'vi->tlla' : 'tlla->vi';
+    setDirection(newDir);
+    // Swap content
+    const inputVal = inputText.value;
+    const outputVal = outputText.value;
+    if (outputVal && !inputVal) {
+        inputText.value = outputVal;
+        outputText.value = '';
+        runTranslation();
+    } else if (inputVal && outputVal) {
+        inputText.value = outputVal;
+        outputText.value = '';
+        runTranslation();
+    }
+}
+
+swapBtn.addEventListener('click', swapDirection);
+
+document.querySelectorAll('.dir-btn').forEach(btn => {
+    btn.addEventListener('click', () => setDirection(btn.dataset.dir));
+});
+
+// ── Toggle pipeline ──────────────────────────────────────────────
+pipelineToggle.addEventListener('click', () => {
+    pipelineToggle.classList.toggle('open');
+    pipelineBody.classList.toggle('visible');
+});
+
+// ── Copy ────────────────────────────────────────────────────────
+copyBtn.addEventListener('click', () => {
+    if (!outputText.value) return;
+    navigator.clipboard.writeText(outputText.value).then(() => {
+        copyBtn.textContent = 'copied!';
+        setTimeout(() => copyBtn.textContent = 'copy', 1500);
+    });
+});
+
+// ── Input handler ────────────────────────────────────────────────
+inputText.addEventListener('input', () => {
+    clearTimeout(debTimer);
+    debTimer = setTimeout(runTranslation, 400);
+});
+
+function setStatus(el, msg, cls = '') {
+    el.textContent = msg;
+    el.className = cls;
+}
+
+// ── Main translation ─────────────────────────────────────────────
+async function runTranslation() {
+    const src = inputText.value.trim();
+    if (!src) {
+        outputText.value = '';
+        pipeline.style.display = 'none';
+        setStatus(inputStatus, 'Nhập văn bản để dịch.');
+        setStatus(outputStatus, '');
+        return;
+    }
+
+    setStatus(inputStatus, '', '');
+    inputStatus.innerHTML = '<span class="spinner"></span> Đang xử lý...';
+    setStatus(outputStatus, '…');
+
+    try {
+        const res = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: src, direction: currentDirection })
+        });
+        const data = await res.json();
+
+        if (!data.success) throw new Error(data.error || 'Lỗi server');
+
+        outputText.value = data.text;
+        setStatus(inputStatus, '✓ Hoàn tất.', 'status-ok');
+        setStatus(outputStatus, `✓ Dịch xong`, 'status-ok');
+
+        // Hiển thị pipeline chỉ khi dịch Việt → TLLa
+        if (currentDirection === 'vi->tlla' && data.step1) {
+            renderPipeline(data, src);
+        } else {
+            pipeline.style.display = 'none';
+        }
+    } catch (err) {
+        setStatus(inputStatus, '✗ ' + err.message, 'status-err');
+        setStatus(outputStatus, '', '');
+        pipeline.style.display = 'none';
+    }
+}
+
+// ── Render pipeline log ───────────────────────────────────────────
+function renderPipeline(data, original) {
+    pipeline.style.display = 'block';
+    pipelineBody.innerHTML = '';
+
+    if (data.step1) {
+        const grp = makeStepGroup('Bước 1 — Dịch & kiểm tra ngược từng từ');
+        const content = document.createElement('div');
+        content.className = 'step-content';
+
+        for (const blk of data.step1) {
+            const chip = document.createElement('span');
+            if (blk.tlla) {
+                chip.className = 'word-chip ok';
+                chip.innerHTML = `${esc(blk.original)} <span class="arrow">→</span> <b>${esc(blk.tlla)}</b>`;
+            } else {
+                chip.className = 'word-chip fail';
+                chip.innerHTML = `${esc(blk.original)} <span class="arrow">✗</span> <i>giữ nguyên</i>`;
+            }
+            content.appendChild(chip);
+        }
+        grp.appendChild(content);
+        pipelineBody.appendChild(grp);
+    }
+
+    if (data.step2) {
+        const grp = makeStepGroup('Bước 2 — Gộp chuỗi TLLa liên tiếp');
+        const content = document.createElement('div');
+        content.className = 'step-content';
+        content.innerHTML = `<span class="tlla-hi">${esc(data.step2)}</span>`;
+        grp.appendChild(content);
+        pipelineBody.appendChild(grp);
+    }
+
+    if (data.step3_steps && data.step3_steps.length) {
+        const grp = makeStepGroup('Bước 3 — Rút gọn tối đa (từ cuối về đầu)');
+        const content = document.createElement('div');
+        content.className = 'step-content';
+        content.style.padding = '0.5rem 0.9rem';
+
+        for (const step of data.step3_steps) {
+            const row = document.createElement('div');
+            row.className = 'min-step';
+
+            if (step.action === 'start_token') {
+                row.innerHTML = `<span class="tag tag-start">token</span> <span class="tlla-hi">${esc(step.token)}</span> <span style="color:var(--text-dim);font-size:0.75rem">— bắt đầu rút gọn</span>`;
+            } else if (step.action === 'try_shorten') {
+                const okTag = step.ok
+                    ? `<span class="tag tag-ok">✓ đúng</span>`
+                    : `<span class="tag tag-fail">✗ sai</span>`;
+                row.innerHTML = `
+                    <span class="tag tag-try">thử</span>
+                    <span class="tlla-hi">${esc(step.from)}</span>
+                    <span style="color:var(--text-dim)">→</span>
+                    <span class="tlla-hi">${esc(step.to)}</span>
+                    ${okTag}
+                    <span style="color:var(--text-dim);font-size:0.75rem">→ "${esc(step.result_vi)}"</span>
+                `;
+            } else if (step.action === 'revert') {
+                row.innerHTML = `<span class="tag tag-fail">giữ</span> <span class="tlla-hi">${esc(step.keep)}</span> <span style="color:var(--text-dim);font-size:0.75rem">— sai, dùng bản trước</span>`;
+            } else if (step.action === 'limit_reached') {
+                row.innerHTML = `<span class="tag tag-limit">giới hạn</span> <span class="tlla-hi">${esc(step.token)}</span> <span style="color:var(--text-dim);font-size:0.75rem">— còn 1 ký tự, dừng</span>`;
+            }
+
+            content.appendChild(row);
+        }
+
+        grp.appendChild(content);
+        pipelineBody.appendChild(grp);
+    }
+
+    const finalGrp = makeStepGroup('Kết quả rút gọn tối đa');
+    const resBox = document.createElement('div');
+    resBox.className = 'result-box';
+    resBox.style.margin = '0.75rem';
+    resBox.textContent = data.text;
+    finalGrp.appendChild(resBox);
+    pipelineBody.appendChild(finalGrp);
+
+    if (!pipelineToggle.classList.contains('open')) {
+        pipelineToggle.classList.add('open');
+        pipelineBody.classList.add('visible');
+    }
+}
+
+function makeStepGroup(label) {
+    const grp = document.createElement('div');
+    grp.className = 'step-group';
+    const lbl = document.createElement('div');
+    lbl.className = 'step-label';
+    lbl.textContent = label;
+    grp.appendChild(lbl);
+    return grp;
+}
+
+function esc(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Tab System ───────────────────────────────────────────────────
+function switchTab(name) {
+    document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        const tabs = ['tlla', 'compress', 'decompress'];
+        btn.classList.toggle('active', tabs[i] === name);
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ── TLC Compress ─────────────────────────────────────────────────
+async function runCompress() {
+    const src = document.getElementById('tlcInput').value.trim();
+    if (!src) return;
+
+    const btn = document.getElementById('compressBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Đang nén…';
+    document.getElementById('tlcInputStatus').innerHTML = '<span class="spinner"></span> Đang xử lý TLLa + TLC…';
+    document.getElementById('tlcTLLaOut').textContent = '';
+    document.getElementById('tlcCompactOut').textContent = '';
+    document.getElementById('tlcStatsPanel').style.display = 'none';
+
+    try {
+        const res = await fetch('/api/compress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: src })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        document.getElementById('tlcTLLaOut').textContent = data.tlla || '(không TLLa hóa được)';
+        document.getElementById('tlcCompactOut').textContent = data.compact;
+        
+        window.lastCompact = data.compact; // Lưu để export
+
+        const s = data.stats;
+        const tllaBytes = s.original_bytes;
+        const cBytes = s.compressed_bytes;
+        const viBytes = s.original_vi_bytes;
+
+        document.getElementById('tlcTLLaStat').textContent =
+            `TLLa: ${s.original_chars} ký tự · ${tllaBytes} bytes`;
+        document.getElementById('tlcCompactStat').textContent =
+            `Compact: ${s.compressed_chars} ký tự · ${cBytes} bytes`;
+
+        const statsRow = document.getElementById('tlcStatsRow');
+        statsRow.innerHTML = '';
+
+        const chips = [
+            { lbl: 'Tiếng Việt gốc', val: `${viBytes}B`, cls: '' },
+            { lbl: 'TLLa rút gọn', val: `${tllaBytes}B`, cls: '' },
+            { lbl: 'TLC compact', val: `${cBytes}B`, cls: '' },
+            {
+                lbl: 'TLLa so với Việt',
+                val: `${Math.round((1 - tllaBytes/viBytes)*100)}% nhỏ hơn`,
+                cls: tllaBytes < viBytes ? 'good' : 'bad'
+            },
+            {
+                lbl: 'Compact so với TLLa',
+                val: `${s.saving_pct > 0 ? '-' : '+'}${Math.abs(s.saving_pct)}%`,
+                cls: s.saving_pct > 0 ? 'good' : 'bad'
+            },
+            {
+                lbl: 'Compact so với Việt',
+                val: `${s.vi_vs_compact_saving_pct > 0 ? '-' : '+'}${Math.abs(s.vi_vs_compact_saving_pct)}%`,
+                cls: s.vi_vs_compact_saving_pct > 0 ? 'good' : 'bad'
+            },
+        ];
+
+        for (const chip of chips) {
+            const el = document.createElement('div');
+            el.className = 'stat-chip ' + chip.cls;
+            el.innerHTML = `<span class="lbl">${chip.lbl}: </span><span class="val">${chip.val}</span>`;
+            statsRow.appendChild(el);
+        }
+
+        document.getElementById('tlcStatsPanel').style.display = 'block';
+        document.getElementById('tlcInputStatus').textContent = '✓ Nén hoàn tất.';
+        document.getElementById('tlcInputStatus').className = 'status-ok';
+
+    } catch (err) {
+        document.getElementById('tlcInputStatus').textContent = '✗ ' + err.message;
+        document.getElementById('tlcInputStatus').className = 'status-err';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '▶ Nén';
+    }
+}
+
+function copyCompact() {
+    const val = document.getElementById('tlcCompactOut').textContent;
+    if (!val) return;
+    navigator.clipboard.writeText(val).then(() => {
+        const btn = document.getElementById('copyCompactBtn');
+        btn.textContent = 'copied!';
+        setTimeout(() => btn.textContent = 'copy', 1500);
+    });
+}
+
+// ── Export .thualuu ──────────────────────────────────────────────
+async function exportThualuu() {
+    const compact = document.getElementById('tlcCompactOut').textContent;
+    if (!compact) {
+        alert('Chưa có dữ liệu nén. Hãy nhấn "Nén" trước.');
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/export_thualuu', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ compact: compact })
+        });
+        
+        if (res.ok) {
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'document.thualuu';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } else {
+            throw new Error('Export failed');
+        }
+    } catch (err) {
+        alert('Lỗi xuất file: ' + err.message);
+    }
+}
+
+// ── Import .thualuu ──────────────────────────────────────────────
+async function importThualuu(input) {
+    if (!input.files || !input.files[0]) return;
+    
+    const file = input.files[0];
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    document.getElementById('tlcDecompStatus').innerHTML = '<span class="spinner"></span> Đang đọc file...';
+    
+    try {
+        const res = await fetch('/api/import_thualuu', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (!data.success) throw new Error(data.error);
+        
+        document.getElementById('tlcDecompInput').value = data.compact;
+        document.getElementById('tlcDecompStatus').textContent = '✓ Đã tải file. Nhấn "Giải nén" để xem kết quả.';
+        document.getElementById('tlcDecompStatus').className = 'status-ok';
+        
+        // Tự động giải nén luôn
+        runDecompress();
+        
+    } catch (err) {
+        document.getElementById('tlcDecompStatus').textContent = '✗ ' + err.message;
+        document.getElementById('tlcDecompStatus').className = 'status-err';
+    }
+    
+    input.value = '';
+}
+
+// ── TLC Decompress ────────────────────────────────────────────────
+async function runDecompress() {
+    const compact = document.getElementById('tlcDecompInput').value.trim();
+    if (!compact) return;
+
+    document.getElementById('tlcDecompStatus').innerHTML = '<span class="spinner"></span> Đang giải nén…';
+    document.getElementById('tlcDecompTLLa').textContent = '';
+    document.getElementById('tlcDecompVI').textContent = '';
+
+    try {
+        const res = await fetch('/api/decompress', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ compact })
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error);
+
+        document.getElementById('tlcDecompTLLa').textContent = data.tlla;
+        document.getElementById('tlcDecompVI').textContent = data.vi;
+        document.getElementById('tlcDecompStatus').textContent = '✓ Giải nén hoàn tất.';
+        document.getElementById('tlcDecompStatus').className = 'status-ok';
+
+    } catch (err) {
+        document.getElementById('tlcDecompStatus').textContent = '✗ ' + err.message;
+        document.getElementById('tlcDecompStatus').className = 'status-err';
+    }
+}
+
+// Enter key shortcuts
+document.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('tlcDecompInput');
+    if (inp) inp.addEventListener('keydown', e => {
+        if (e.ctrlKey && e.key === 'Enter') runDecompress();
+    });
+    const tlcInp = document.getElementById('tlcInput');
+    if (tlcInp) tlcInp.addEventListener('keydown', e => {
+        if (e.ctrlKey && e.key === 'Enter') runCompress();
+    });
+    
+    // Set initial direction
+    setDirection('tlla->vi');
+});
+</script>
+</body>
+</html>
