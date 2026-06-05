@@ -510,12 +510,24 @@
 
     <div class="panel">
         <div class="panel-header">
-            <span class="dot red"></span>TLC Compact (Base85 · ASCII)
-            <button class="copy-btn" id="copyCompactBtn" onclick="copyCompact()" style="margin-left:auto">copy</button>
+            <span class="dot red"></span>FILE 1 · Luồng ký tự (Base85)
+            <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('tlcCharOut').textContent)" style="margin-left:auto">copy</button>
         </div>
-        <div id="tlcCompactOut" class="compact-box" style="margin:0.75rem;min-height:80px"></div>
-        <div class="panel-footer" id="tlcCompactStat">—</div>
+        <div id="tlcCharOut" class="compact-box" style="margin:0.75rem;min-height:80px"></div>
+        <div class="panel-footer" id="tlcCharStat">—</div>
     </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <span class="dot red"></span>FILE 2 · Luồng tông (Base85)
+            <button class="copy-btn" onclick="navigator.clipboard.writeText(document.getElementById('tlcToneOut').textContent)" style="margin-left:auto">copy</button>
+        </div>
+        <div id="tlcToneOut" class="compact-box" style="margin:0.75rem;min-height:80px;color:var(--accent3)"></div>
+        <div class="panel-footer" id="tlcToneStat">—</div>
+    </div>
+
+    <!-- Combined (ẩn, dùng để export .thualuu) -->
+    <div id="tlcCompactOut" style="display:none"></div>
 
     <div class="panel tlc-full" id="tlcStatsPanel" style="display:none">
         <div class="panel-header"><span class="dot yellow"></span>Thống kê nén</div>
@@ -824,9 +836,29 @@ async function runCompress() {
         if (!data.success) throw new Error(data.error);
 
         document.getElementById('tlcTLLaOut').textContent = data.tlla || '(không TLLa hóa được)';
+
+        // Hiển thị 2 stream riêng
+        const mode = data.compress_mode || 'SHORT';
+        const charEl = document.getElementById('tlcCharOut');
+        const toneEl = document.getElementById('tlcToneOut');
+        const charStat = document.getElementById('tlcCharStat');
+        const toneStat = document.getElementById('tlcToneStat');
+
+        charEl.textContent = data.char_stream || data.compact;
         document.getElementById('tlcCompactOut').textContent = data.compact;
-        
-        window.lastCompact = data.compact; // Lưu để export
+        window.lastCompact = data.compact;
+
+        if (mode === 'TI' && data.tone_stream) {
+            toneEl.textContent = data.tone_stream;
+            toneEl.style.opacity = '1';
+            charStat.textContent = `File 1: ${data.char_bytes} bytes`;
+            toneStat.textContent = `File 2: ${data.tone_bytes} bytes`;
+        } else {
+            toneEl.textContent = '(văn bản ngắn — dùng mode SHORT, không tách stream)';
+            toneEl.style.opacity = '0.4';
+            charStat.textContent = `Compact: ${data.stats.compressed_bytes} bytes (SHORT mode)`;
+            toneStat.textContent = '—';
+        }
 
         const s = data.stats;
         const tllaBytes = s.original_bytes;
@@ -835,8 +867,6 @@ async function runCompress() {
 
         document.getElementById('tlcTLLaStat').textContent =
             `TLLa: ${s.original_chars} ký tự · ${tllaBytes} bytes`;
-        document.getElementById('tlcCompactStat').textContent =
-            `Compact: ${s.compressed_chars} ký tự · ${cBytes} bytes`;
 
         const statsRow = document.getElementById('tlcStatsRow');
         statsRow.innerHTML = '';

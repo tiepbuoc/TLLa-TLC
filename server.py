@@ -979,7 +979,8 @@ def compress_endpoint():
 
         # Pipeline TLC compression
         compressor = get_compressor()
-        compact = compressor.compress(tlla_final)
+        split = compressor.compress_split(tlla_final)
+        compact = split['combined']
         stats = compressor.stats(tlla_final, compact)
 
         vi_bytes = len(raw.encode('utf-8'))
@@ -987,10 +988,19 @@ def compress_endpoint():
         stats['vi_vs_compact_ratio'] = round(stats['compressed_bytes'] / vi_bytes, 4) if vi_bytes else 1
         stats['vi_vs_compact_saving_pct'] = round((1 - stats['vi_vs_compact_ratio']) * 100, 1)
 
+        # Thống kê riêng 2 stream (chỉ có khi mode=TI)
+        char_bytes_len = len(split['char_compact'].encode('ascii')) if split['char_compact'] else 0
+        tone_bytes_len = len(split['tone_compact'].encode('ascii')) if split['tone_compact'] else 0
+
         return jsonify({
             'success': True,
             'tlla': tlla_final,
             'compact': compact,
+            'char_stream': split['char_compact'],
+            'tone_stream': split['tone_compact'],
+            'compress_mode': split['mode'],
+            'char_bytes': char_bytes_len,
+            'tone_bytes': tone_bytes_len,
             'stats': stats,
             'step1': step1_blocks,
             'step2': step2_str,
